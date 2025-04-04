@@ -1,4 +1,3 @@
-
 # app.py – AI-app voor bijwerkingen voorspellen via ATC-code
 # Auteur: Faisal + ChatGPT
 
@@ -18,8 +17,8 @@ st.markdown("- ⚠️ Huiduitslag")
 # 🔹 1. Dataset ophalen en voorbereiden
 @st.cache_data
 def load_data():
-    # Laad de dataset (TSV-bestand)
-    df = pd.read_table("meddra_freq.tsv", sep="\t")  # Gebruik sep="\t" voor tab-separated
+    # Laad de juiste dataset (drug_atc.tsv)
+    df = pd.read_table("drug_atc.tsv", sep="\t")  # Laadt het bestand met ATC-code en bijwerkingen
     
     # Verwerk de bijwerkingen en voeg nieuwe kolommen toe
     df['Side Effect'] = df['Side Effect'].str.lower()
