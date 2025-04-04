@@ -18,7 +18,7 @@ st.markdown("- ⚠️ Huiduitslag")
 @st.cache_data
 def load_data():
     # Laad de juiste dataset (drug_atc.tsv)
-    df = pd.read_table("drug_names.tsv", sep="\t")  # Laadt het bestand met ATC-code en bijwerkingen
+    df = pd.read_table("drug_atc.tsv", sep="\t")  # Laadt het bestand met ATC-code en bijwerkingen
     
     # Verwerk de bijwerkingen en voeg nieuwe kolommen toe
     df['Side Effect'] = df['Side Effect'].str.lower()
