@@ -18,13 +18,16 @@ st.markdown("- ⚠️ Huiduitslag")
 # 🔹 1. Dataset ophalen en voorbereiden
 @st.cache_data
 def load_data():
-    url = "https://advisors-demo.openai.com/sider/SIDER_combined_dataset.csv"
-    df = pd.read_csv(url)
+    # Laad de dataset (TSV-bestand)
+    df = pd.read_table("meddra_all_se.tsv.gz", sep="\t")  # Gebruik sep="\t" voor tab-separated
+    
+    # Verwerk de bijwerkingen en voeg nieuwe kolommen toe
     df['Side Effect'] = df['Side Effect'].str.lower()
     df['has_dizziness'] = df['Side Effect'].str.contains('dizziness').astype(int)
     df['has_nausea'] = df['Side Effect'].str.contains('nausea').astype(int)
     df['has_rash'] = df['Side Effect'].str.contains('rash').astype(int)
     
+    # Groepeer de data op ATC-code en bereken de aanwezigheid van bijwerkingen
     df_grouped = df.groupby('ATC Code').agg({
         'has_dizziness': 'max',
         'has_nausea': 'max',
