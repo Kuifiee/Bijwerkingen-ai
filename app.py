@@ -19,7 +19,7 @@ st.markdown("- ⚠️ Huiduitslag")
 @st.cache_data
 def load_data():
     # Laad de dataset (TSV-bestand)
-    df = pd.read_table("meddra_all_se.tsv.gz", sep="\t")  # Gebruik sep="\t" voor tab-separated
+    df = pd.read_table("meddra_freq.tsv", sep="\t")  # Gebruik sep="\t" voor tab-separated
     
     # Verwerk de bijwerkingen en voeg nieuwe kolommen toe
     df['Side Effect'] = df['Side Effect'].str.lower()
