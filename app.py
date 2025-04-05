@@ -18,6 +18,10 @@ def load_data():
     # Laad de dataset zonder kolomnamen (header=None)
     df = pd.read_csv('meddra_freq.tsv', sep='\t', header=None)
 
+    # Bekijk de eerste paar rijen om te controleren welke kolommen aanwezig zijn
+    st.write("Dataset preview:")
+    st.write(df.head())  # Dit toont de eerste paar rijen van de dataset
+
     # De dataset heeft geen kolomnamen, dus we moeten zelf kolomnamen toewijzen
     df.columns = ['CID1', 'CID2', 'ATC Code', 'empty', 'percentage', 'value1', 'value2', 'LLT', 'ATC Code Duplicate', 'Side Effect']
     
