@@ -49,7 +49,10 @@ def load_data():
 
     # Maak nieuwe kolommen voor elke bijwerking
     for symptom in symptoms:
-        df[f'has_{symptom.lower().replace(" ", "_")}'] = df['Side Effect'].str.contains(symptom, case=False, na=False).astype(int)
+        if symptom in df['Side Effect'].values:
+            df[f'has_{symptom.lower().replace(" ", "_")}'] = df['Side Effect'].str.contains(symptom, case=False, na=False).astype(int)
+        else:
+            df[f'has_{symptom.lower().replace(" ", "_")}'] = 0  # Geen bijwerking aanwezig
 
     # Laat de gegevens zien van de nieuwe kolommen
     st.write("Voorbeeld van de gegevens met bijwerkingen:", df[['ATC Code', 'Side Effect'] + [f'has_{symptom.lower().replace(" ", "_")}' for symptom in symptoms]].head())
