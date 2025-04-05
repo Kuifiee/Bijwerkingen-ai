@@ -39,7 +39,7 @@ if user_input:
         for _, row in matched_data.iterrows():
             st.markdown(f"- **{row['Side Effect']}**")
     else:
-        st.error("❌ De opgegeven ATC-code werd niet gevonden in de dataset. Probeer een andere code.")
+        st.info("ℹ️ Geen bijwerkingen gevonden voor deze ATC-code. Probeer een andere code.")
 
 # Stijl en visuele verbeteringen
 st.markdown("""
