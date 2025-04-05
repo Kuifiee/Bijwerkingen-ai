@@ -26,6 +26,9 @@ def load_data():
     df = pd.merge(atc_data, side_effects_data, on='ATC Code', how='inner')
     df = pd.merge(df, drug_names, on='ATC Code', how='inner')
 
+    # Verwijder eventuele lege ATC-codes en andere mogelijke ongeldige waarden
+    df = df.dropna(subset=['ATC Code'])
+    
     # Voeg bijwerkingen toe als indicatoren
     df['has_dizziness'] = df['Side Effect'].str.contains('dizziness', case=False, na=False).astype(int)
     df['has_nausea'] = df['Side Effect'].str.contains('nausea', case=False, na=False).astype(int)
@@ -45,7 +48,7 @@ data = load_data()
 
 # 🔹 2. Model trainen per bijwerking
 vectorizer = CountVectorizer()
-X = vectorizer.fit_transform(data['ATC Code'])
+X = vectorizer.fit_transform(data['ATC Code'].astype(str))  # Zorg ervoor dat de ATC-code als string wordt behandeld
 
 models = {}
 for effect in ['has_dizziness', 'has_nausea', 'has_rash']:
