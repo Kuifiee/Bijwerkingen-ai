@@ -6,18 +6,9 @@ st.set_page_config(page_title="AI voor Bijwerkingen", layout="centered", initial
 st.title("🔬 AI-voorspeller voor Geneesmiddelbijwerkingen")
 st.markdown("Ontdek welke bijwerkingen kunnen optreden op basis van de ATC-code van een geneesmiddel.")
 
-# Informatie en uitleg
-st.sidebar.header("Instructies")
-st.sidebar.write("""
-    - Voer een ATC-code in (bijvoorbeeld **N02BE01**).
-    - Ontvang een lijst met bijwerkingen die gekoppeld zijn aan het medicijn.
-    - Deze app maakt gebruik van gegevens over ATC-codes en bijwerkingen om voorspellingen te doen.
-""")
-
 # Laad de data
 @st.cache_data
 def load_data():
-    # Laad de ATC codes en bijwerkingen
     atc_df = pd.read_csv("drug_atc.tsv", sep="\t", header=None, names=["ATC Code", "Drug Name"])
     side_effects_df = pd.read_csv("meddra_freq.tsv", sep="\t", header=None, names=["ATC Code", "Side Effect"])
     return atc_df, side_effects_df
