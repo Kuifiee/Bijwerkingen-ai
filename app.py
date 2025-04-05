@@ -29,6 +29,10 @@ def load_data():
     # Verwijder eventuele lege ATC-codes en andere mogelijke ongeldige waarden
     df = df.dropna(subset=['ATC Code'])
     
+    # Filter op geldige ATC-codes (zorg ervoor dat het geen lege of ongeldige codes zijn)
+    df['ATC Code'] = df['ATC Code'].astype(str).str.strip()  # Verwijder eventuele spaties rondom de ATC-codes
+    df = df[df['ATC Code'] != '']  # Verwijder lege ATC-codes
+
     # Voeg bijwerkingen toe als indicatoren
     df['has_dizziness'] = df['Side Effect'].str.contains('dizziness', case=False, na=False).astype(int)
     df['has_nausea'] = df['Side Effect'].str.contains('nausea', case=False, na=False).astype(int)
