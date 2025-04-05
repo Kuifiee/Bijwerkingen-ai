@@ -49,9 +49,23 @@ models = {}
 for effect in ['has_dizziness', 'has_nausea', 'has_rash']:
     y = data[effect]
     X = data[['ATC Code Encoded']]  # Gebruik de gecodeerde ATC-code als invoer
-    model = LogisticRegression()
-    model.fit(X, y)
-    models[effect] = model
+    
+    # Controleer of X en y geen lege waarden bevatten
+    if X.empty or y.empty:
+        st.error(f"Fout: De gegevens voor {effect} zijn leeg.")
+        continue
+    
+    # Controleer de vormen van X en y
+    st.write(f"Trainen voor effect: {effect}")
+    st.write(f"Vorm van X: {X.shape}")
+    st.write(f"Vorm van y: {y.shape}")
+    
+    try:
+        model = LogisticRegression()
+        model.fit(X, y)
+        models[effect] = model
+    except ValueError as e:
+        st.error(f"Fout bij het trainen van het model voor {effect}: {e}")
 
 # 🔹 3. Interface voor input
 user_input = st.text_input("✏️ Voer ATC-code in (bijv. N02BE01):", value="N02BE01")
