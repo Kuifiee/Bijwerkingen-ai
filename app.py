@@ -15,14 +15,17 @@ st.markdown("- ⚠️ Huiduitslag")
 # 🔹 1. Dataset ophalen en voorbereiden
 @st.cache_data
 def load_data():
-    # Laad de dataset zonder kolomnamen
+    # Laad de dataset zonder kolomnamen (header=None)
     df = pd.read_csv('meddra_freq.tsv', sep='\t', header=None)
 
     # Laat de eerste paar regels zien om te begrijpen hoe de data eruitziet
     st.write(df.head())
 
-    # Laten we aannemen dat de bijwerkingen zich in de laatste kolom bevinden
-    df['Side Effect'] = df[df.columns[-1]]  # Neem de laatste kolom als bijwerking
+    # De dataset heeft geen kolomnamen, dus we moeten zelf kolomnamen toewijzen
+    df.columns = ['CID1', 'CID2', 'ATC Code', 'empty', 'percentage', 'value1', 'value2', 'LLT', 'ATC Code Duplicate', 'Side Effect']
+    
+    # We kunnen de extra kolommen verwijderen die niet nodig zijn
+    df = df[['ATC Code', 'Side Effect']]  # Alleen de relevante kolommen behouden
 
     # Zorg ervoor dat de bijwerkingen in kleine letters worden omgezet
     df['Side Effect'] = df['Side Effect'].str.lower()
@@ -31,6 +34,11 @@ def load_data():
     df['has_dizziness'] = df['Side Effect'].str.contains('dizziness').astype(int)
     df['has_nausea'] = df['Side Effect'].str.contains('nausea').astype(int)
     df['has_rash'] = df['Side Effect'].str.contains('rash').astype(int)
+
+    # Controleer of de 'ATC Code' kolom bestaat, anders geef een foutmelding
+    if 'ATC Code' not in df.columns:
+        st.error("De kolom 'ATC Code' is niet gevonden in de dataset.")
+        return pd.DataFrame()
 
     # Groepeer op ATC-code en bereken de maximumwaarden per bijwerking
     df_grouped = df.groupby('ATC Code').agg({
@@ -46,6 +54,10 @@ def load_data():
 
 # Haal de data op
 data = load_data()
+
+# Zorg ervoor dat data is geladen voordat we verder gaan
+if data.empty:
+    st.stop()
 
 # 🔹 2. Model trainen per bijwerking
 vectorizer = CountVectorizer()
