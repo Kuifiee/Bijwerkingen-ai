@@ -1,10 +1,7 @@
-# app.py – AI-app voor bijwerkingen voorspellen via ATC-code
-# Auteur: Faisal + ChatGPT
-
 import pandas as pd
 import streamlit as st
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import LabelEncoder
 
 st.set_page_config(page_title="AI voor Bijwerkingen", layout="centered")
 
@@ -50,13 +47,15 @@ def load_data():
 
 data = load_data()
 
-# 🔹 2. Model trainen per bijwerking
-vectorizer = CountVectorizer()
-X = vectorizer.fit_transform(data['ATC Code'].astype(str))  # Zorg ervoor dat de ATC-code als string wordt behandeld
+# 🔹 2. LabelEncoder gebruiken voor ATC-codes
+encoder = LabelEncoder()
+data['ATC Code Encoded'] = encoder.fit_transform(data['ATC Code'])
 
+# Train modellen voor de drie bijwerkingen
 models = {}
 for effect in ['has_dizziness', 'has_nausea', 'has_rash']:
     y = data[effect]
+    X = data[['ATC Code Encoded']]  # Gebruik de gecodeerde ATC-code als invoer
     model = LogisticRegression()
     model.fit(X, y)
     models[effect] = model
@@ -72,12 +71,12 @@ if user_input:
         # Haal de naam van het medicijn op
         drug_name = data[data['ATC Code'] == user_input]['Drug Name'].values[0]
 
-        # Voorspel de bijwerkingen
-        x_new = vectorizer.transform([user_input])
+        # Encodeer de gebruikersinvoer en voorspel de bijwerkingen
+        user_input_encoded = encoder.transform([user_input])
         
-        dizziness = models['has_dizziness'].predict(x_new)[0]
-        nausea = models['has_nausea'].predict(x_new)[0]
-        rash = models['has_rash'].predict(x_new)[0]
+        dizziness = models['has_dizziness'].predict([[user_input_encoded[0]]])[0]
+        nausea = models['has_nausea'].predict([[user_input_encoded[0]]])[0]
+        rash = models['has_rash'].predict([[user_input_encoded[0]]])[0]
         
         st.subheader(f"📊 Voorspellingen voor {drug_name}:")
         st.markdown(f"- **Duizeligheid:** {'⚠️ Kans aanwezig' if dizziness else '✅ Waarschijnlijk niet'}")
