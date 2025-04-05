@@ -1,61 +1,64 @@
-import pandas as pd
 import streamlit as st
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.linear_model import LogisticRegression
+import pandas as pd
+import requests
 
-st.set_page_config(page_title="AI voor Bijwerkingen", layout="centered")
+st.set_page_config(page_title="Bijwerkingen AI", layout="centered")
 
-st.title("🧠 AI-voorspeller voor Geneesmiddelbijwerkingen")
-st.markdown("Voer een **medicijnnaam** of **ATC-code** in en ontdek de kans op:")
-st.markdown("- ⚠️ Duizeligheid")
-st.markdown("- ⚠️ Misselijkheid")
-st.markdown("- ⚠️ Huiduitslag")
+st.title("💊 Bijwerkingen Verkenner")
 
-@st.cache_data
-def load_data():
-    # Bijwerkingen-data
-    df = pd.read_csv("meddra_freq.tsv", sep="\t")
-    df["Side Effect"] = df["Side Effect"].str.lower()
-    df["has_dizziness"] = df["Side Effect"].str.contains("dizziness").astype(int)
-    df["has_nausea"] = df["Side Effect"].str.contains("nausea").astype(int)
-    df["has_rash"] = df["Side Effect"].str.contains("rash").astype(int)
-    side_effects = df.groupby("ATC Code").agg({
-        "has_dizziness": "max",
-        "has_nausea": "max",
-        "has_rash": "max"
-    }).reset_index()
+st.write("Zoek op een **medicijnnaam** of **ATC-code** om mogelijke bijwerkingen te zien.")
 
-    # Medicijnnamen-data
-    drug_names = pd.read_csv("drug_names.tsv", sep="\t")
-    return side_effects, drug_names
+# 🔍 Zoekfunctie
+query = st.text_input("Typ een medicijn of ATC-code:")
 
-data, drug_data = load_data()
+@st.cache_data(show_spinner=False)
+def search_cid(drug_name):
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{drug_name}/cids/JSON"
+    r = requests.get(url)
+    if r.status_code == 200 and "IdentifierList" in r.json():
+        return r.json()["IdentifierList"]["CID"][0]
+    return None
 
-# Combineer de data voor lookup (ATC + naam)
-combined = pd.merge(drug_data, data, on="ATC Code", how="left")
+@st.cache_data(show_spinner=False)
+def get_side_effects_from_sider(cid):
+    # SIDER heeft een publieke dump, hier simuleren we een fetch uit een lokale of eigen API
+    # Voor nu gebruiken we dummydata als voorbeeld
+    dummy_data = {
+        2244: ["nausea", "vomiting", "rash"],
+        1983: ["headache", "dizziness"],
+        3672: ["dry mouth", "fatigue", "insomnia"]
+    }
+    return dummy_data.get(cid, [])
 
-# Maak een zoeklijst
-zoeklijst = pd.concat([
-    combined["Drug"],
-    combined["ATC Code"]
-]).dropna().unique()
+@st.cache_data(show_spinner=False)
+def get_pubchem_info(cid):
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/JSON"
+    r = requests.get(url)
+    if r.status_code == 200:
+        data = r.json()
+        try:
+            name = data["PC_Compounds"][0]["props"][0]["value"]["sval"]
+            return name
+        except:
+            return "Naam onbekend"
+    return "Naam onbekend"
 
-user_input = st.text_input("🔎 Zoek op medicijn of ATC-code:", value="Paracetamol").strip().upper()
+# 👉 App logica
+if query:
+    with st.spinner("Zoeken naar informatie..."):
+        cid = search_cid(query)
+        if cid:
+            drug_name = get_pubchem_info(cid)
+            st.success(f"🧪 Gevonden stof: **{drug_name}** (CID: {cid})")
+            side_effects = get_side_effects_from_sider(cid)
 
-if user_input:
-    st.write(f"🔍 Je zocht op: `{user_input}`")
-
-    # Zoek matches
-    match = combined[
-        (combined["Drug"].str.upper() == user_input) |
-        (combined["ATC Code"].str.upper() == user_input)
-    ]
-
-    if not match.empty:
-        for _, row in match.iterrows():
-            st.subheader(f"💊 {row['Drug']} ({row['ATC Code']})")
-            st.markdown(f"- **Duizeligheid:** {'⚠️ Kans aanwezig' if row['has_dizziness'] else '✅ Waarschijnlijk niet'}")
-            st.markdown(f"- **Misselijkheid:** {'⚠️ Kans aanwezig' if row['has_nausea'] else '✅ Waarschijnlijk niet'}")
-            st.markdown(f"- **Huiduitslag:** {'⚠️ Kans aanwezig' if row['has_rash'] else '✅ Waarschijnlijk niet'}")
-    else:
-        st.warning("Geen resultaten gevonden. Probeer een andere naam of ATC-code.")
+            if side_effects:
+                st.subheader("📋 Mogelijke bijwerkingen")
+                for effect in side_effects:
+                    st.write(f"• {effect}")
+            else:
+                st.warning("Geen bijwerkingen gevonden in de dataset.")
+        else:
+            st.error("Geen gegevens gevonden. Probeer een andere naam of ATC-code.")
+else:
+    st.info("Voer een naam of ATC-code in om te starten.")
