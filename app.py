@@ -1,61 +1,42 @@
 import pandas as pd
 import streamlit as st
 
-# App configuratie
-st.set_page_config(page_title="AI voor Bijwerkingen", layout="centered", initial_sidebar_state="expanded")
-st.title("🔬 AI-voorspeller voor Geneesmiddelbijwerkingen")
-st.markdown("Ontdek welke bijwerkingen kunnen optreden op basis van de ATC-code van een geneesmiddel.")
+# Laad de bestanden
+drug_atc = pd.read_csv('drug_atc.tsv', sep='\t')
+meddra_freq = pd.read_csv('meddra_freq.tsv', sep='\t')
 
-# Laad de data
-@st.cache_data
-def load_data():
-    atc_df = pd.read_csv("drug_atc.tsv", sep="\t", header=None, names=["ATC Code", "Drug Name"])
-    side_effects_df = pd.read_csv("meddra_freq.tsv", sep="\t", header=None, names=["ATC Code", "Side Effect"])
-    return atc_df, side_effects_df
+# Zorg ervoor dat de CIDs als strings worden behandeld, en verwijder eventuele extra witruimtes
+drug_atc['CID'] = drug_atc['CID'].astype(str).str.strip()
+meddra_freq['CID'] = meddra_freq['CID'].astype(str).str.strip()
 
-# Data laden
-atc_df, side_effects_df = load_data()
-
-# Gebruiker invoer voor ATC-code
-user_input = st.text_input("🔎 Voer ATC-code in:", value="N02BE01", max_chars=10)
-
-# Kijken of de ATC-code bestaat
-if user_input:
-    # Zoek de bijwerkingen op basis van de ATC-code
-    matched_data = side_effects_df[side_effects_df['ATC Code'] == user_input.upper()]
+# Functie om bijwerkingen op te halen voor een ATC-code
+def get_side_effects_for_atc_code(atc_code):
+    # Krijg de CIDs die bij de ATC-code horen
+    cids_for_atc = drug_atc[drug_atc['ATC Code'] == atc_code]['CID'].unique()
     
-    # Controleer of er bijwerkingen zijn voor de ingevoerde ATC-code
-    if not matched_data.empty:
-        st.subheader("📊 Gevonden bijwerkingen:")
-        for _, row in matched_data.iterrows():
-            st.markdown(f"- **{row['Side Effect']}**")
+    # Filter de bijwerkingen uit de meddra_freq dataset die overeenkomen met de CIDs
+    effects = meddra_freq[meddra_freq['CID'].isin(cids_for_atc)]
+    
+    if not effects.empty:
+        # Geef de unieke bijwerkingen voor deze ATC-code
+        return effects['Side Effect'].unique()
     else:
-        st.info("ℹ️ Geen bijwerkingen gevonden voor deze ATC-code. Probeer een andere code.")
+        return "Geen bijwerkingen gevonden voor deze ATC-code."
 
-# Stijl en visuele verbeteringen
-st.markdown("""
-    <style>
-        .sidebar .sidebar-content {
-            background-color: #f1f1f1;
-        }
-        .stButton>button {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .stButton>button:hover {
-            background-color: #45a049;
-        }
-        .stMarkdown>p {
-            font-size: 18px;
-        }
-        .stTextInput>div>input {
-            background-color: #f0f0f0;
-            font-size: 16px;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# Streamlit app
+st.title('Bijwerkingen Zoeker')
 
-# Footer om de app af te maken
-st.markdown("---")
-st.markdown("📅 **Versie 1.0** | 📈 **Bijwerkingen AI**")
-st.markdown("Gegevens bron: [meddra_freq.tsv & drug_atc.tsv]")
+# Vraag om ATC-code in te voeren
+atc_code_input = st.text_input("Voer een ATC-code in (bijvoorbeeld A01):")
+
+if atc_code_input:
+    # Krijg bijwerkingen voor de ingevoerde ATC-code
+    side_effects = get_side_effects_for_atc_code(atc_code_input)
+    
+    # Toon de bijwerkingen of een foutmelding
+    st.write("Bijwerkingen voor ATC-code ", atc_code_input, ":")
+    if isinstance(side_effects, str):  # Geen bijwerkingen gevonden
+        st.error(side_effects)
+    else:
+        for effect in side_effects:
+            st.write(f"- {effect}")
