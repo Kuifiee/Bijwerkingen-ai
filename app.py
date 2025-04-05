@@ -71,7 +71,16 @@ for effect in ['has_dizziness', 'has_nausea', 'has_rash']:
 user_input = st.text_input("✏️ Voer ATC-code in (bijv. N02BE01):", value="N02BE01")
 
 if user_input:
-    x_new = vectorizer.transform([user_input.upper()])
+    user_input = user_input.strip().upper()  # Zorg ervoor dat de invoer goed geformatteerd is
+    st.write(f"Verwerkte ATC-code: {user_input}")
+    
+    # Bekijk of de ATC-code bestaat in de dataset
+    if user_input in data['ATC Code'].values:
+        st.write(f"De ATC-code {user_input} is gevonden in de dataset.")
+    else:
+        st.write(f"De ATC-code {user_input} is NIET gevonden in de dataset.")
+    
+    x_new = vectorizer.transform([user_input])
     
     dizziness = models['has_dizziness'].predict(x_new)[0]
     nausea = models['has_nausea'].predict(x_new)[0]
