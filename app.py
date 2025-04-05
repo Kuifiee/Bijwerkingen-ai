@@ -1,96 +1,69 @@
 import pandas as pd
 import streamlit as st
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.linear_model import LogisticRegression
 
 # Zet de pagina-instellingen van de Streamlit-app
-st.set_page_config(page_title="AI voor Bijwerkingen", layout="centered")
+st.set_page_config(page_title="Voorspeller voor Geneesmiddelbijwerkingen", layout="centered")
 
-st.title("🧠 AI-voorspeller voor Geneesmiddelbijwerkingen")
-st.markdown("Voer een **ATC-code** in en ontdek of het medicijn een kans heeft op:")
+st.title("🧠 Voorspeller voor Geneesmiddelbijwerkingen")
+st.markdown("Voer een **ATC-code** of **medicijnnaam** in en ontdek of het medicijn een kans heeft op:")
 st.markdown("- ⚠️ Duizeligheid")
 st.markdown("- ⚠️ Misselijkheid")
 st.markdown("- ⚠️ Huiduitslag")
 
-# 🔹 1. Dataset ophalen en voorbereiden
 @st.cache_data
 def load_data():
-    # Laad de dataset zonder kolomnamen (header=None)
-    df = pd.read_csv('meddra_freq.tsv', sep='\t', header=None)
+    # Laad de datasets
+    drug_names = pd.read_csv('drug_names.tsv', sep='\t', header=None, names=['drug_id', 'drug_name'])
+    drug_atc = pd.read_csv('drug_atc.tsv', sep='\t', header=None, names=['drug_id', 'atc_code'])
+    meddra_freq = pd.read_csv('meddra_freq.tsv', sep='\t', header=None, names=['cid1', 'cid2', 'atc_code', 'empty', 'percentage', 'value1', 'value2', 'llt', 'atc_code_duplicate', 'side_effect'])
 
-    # Bekijk de eerste paar rijen om te controleren welke kolommen aanwezig zijn
-    st.write("Dataset preview:")
-    st.write(df.head())  # Dit toont de eerste paar rijen van de dataset
+    # Converteer naar kleine letters voor consistente zoekopdrachten
+    drug_names['drug_name'] = drug_names['drug_name'].str.lower()
+    meddra_freq['side_effect'] = meddra_freq['side_effect'].str.lower()
 
-    # De dataset heeft geen kolomnamen, dus we moeten zelf kolomnamen toewijzen
-    df.columns = ['CID1', 'CID2', 'ATC Code', 'empty', 'percentage', 'value1', 'value2', 'LLT', 'ATC Code Duplicate', 'Side Effect']
-    
-    # We kunnen de extra kolommen verwijderen die niet nodig zijn
-    df = df[['ATC Code', 'Side Effect']]  # Alleen de relevante kolommen behouden
+    return drug_names, drug_atc, meddra_freq
 
-    # Zorg ervoor dat de bijwerkingen in kleine letters worden omgezet
-    df['Side Effect'] = df['Side Effect'].str.lower()
+drug_names, drug_atc, meddra_freq = load_data()
 
-    # Voeg kolommen toe voor de bijwerkingen die we willen voorspellen
-    df['has_dizziness'] = df['Side Effect'].str.contains('dizziness').astype(int)
-    df['has_nausea'] = df['Side Effect'].str.contains('nausea').astype(int)
-    df['has_rash'] = df['Side Effect'].str.contains('rash').astype(int)
-
-    # Controleer of de 'ATC Code' kolom bestaat, anders geef een foutmelding
-    if 'ATC Code' not in df.columns:
-        st.error("De kolom 'ATC Code' is niet gevonden in de dataset.")
-        return pd.DataFrame()
-
-    # Groepeer op ATC-code en bereken de maximumwaarden per bijwerking
-    df_grouped = df.groupby('ATC Code').agg({
-        'has_dizziness': 'max',
-        'has_nausea': 'max',
-        'has_rash': 'max'
-    }).reset_index()
-
-    # Vul lege ATC-codes in met 'unknown'
-    df_grouped['ATC Code'] = df_grouped['ATC Code'].fillna('unknown')
-
-    return df_grouped
-
-# Haal de data op
-data = load_data()
-
-# Zorg ervoor dat data is geladen voordat we verder gaan
-if data.empty:
-    st.stop()
-
-# 🔹 2. Model trainen per bijwerking
-vectorizer = CountVectorizer()
-X = vectorizer.fit_transform(data['ATC Code'])
-
-models = {}
-for effect in ['has_dizziness', 'has_nausea', 'has_rash']:
-    y = data[effect]
-    model = LogisticRegression()
-    model.fit(X, y)
-    models[effect] = model
-
-# 🔹 3. Interface voor input
-user_input = st.text_input("✏️ Voer ATC-code in (bijv. N02BE01):", value="N02BE01")
+# Gebruikersinvoer
+user_input = st.text_input("✏️ Voer ATC-code of medicijnnaam in (bijv. N02BE01 of paracetamol):").strip().lower()
 
 if user_input:
-    user_input = user_input.strip().upper()  # Zorg ervoor dat de invoer goed geformatteerd is
-    st.write(f"Verwerkte ATC-code: {user_input}")
-    
-    # Bekijk of de ATC-code bestaat in de dataset
-    if user_input in data['ATC Code'].values:
-        st.write(f"De ATC-code {user_input} is gevonden in de dataset.")
+    # Controleer of de invoer een ATC-code is (meestal 7 tekens lang en begint met een letter)
+    if len(user_input) == 7 and user_input[0].isalpha():
+        atc_code = user_input.upper()
     else:
-        st.write(f"De ATC-code {user_input} is NIET gevonden in de dataset.")
-    
-    x_new = vectorizer.transform([user_input])
-    
-    dizziness = models['has_dizziness'].predict(x_new)[0]
-    nausea = models['has_nausea'].predict(x_new)[0]
-    rash = models['has_rash'].predict(x_new)[0]
-    
-    st.subheader("📊 Voorspellingen:")
-    st.markdown(f"- **Duizeligheid:** {'⚠️ Kans aanwezig' if dizziness else '✅ Waarschijnlijk niet'}")
-    st.markdown(f"- **Misselijkheid:** {'⚠️ Kans aanwezig' if nausea else '✅ Waarschijnlijk niet'}")
-    st.markdown(f"- **Huiduitslag:** {'⚠️ Kans aanwezig' if rash else '✅ Waarschijnlijk niet'}")
+        # Zoek de drug_id op basis van de medicijnnaam
+        drug_id_row = drug_names[drug_names['drug_name'] == user_input]
+        if drug_id_row.empty:
+            st.warning("Geen informatie gevonden voor deze medicijnnaam.")
+            st.stop()
+        drug_id = drug_id_row.iloc[0]['drug_id']
+
+        # Zoek de ATC-code op basis van de drug_id
+        atc_code_row = drug_atc[drug_atc['drug_id'] == drug_id]
+        if atc_code_row.empty:
+            st.warning("Geen ATC-code gevonden voor deze medicijnnaam.")
+            st.stop()
+        atc_code = atc_code_row.iloc[0]['atc_code']
+
+    st.write(f"**Gevonden ATC-code:** {atc_code}")
+
+    # Zoek bijwerkingen op basis van de ATC-code
+    side_effects = meddra_freq[meddra_freq['atc_code'] == atc_code]['side_effect'].tolist()
+
+    if not side_effects:
+        st.warning("Geen bijwerkingen gevonden voor deze ATC-code.")
+    else:
+        # Controleer op specifieke bijwerkingen
+        has_dizziness = any("dizziness" in effect for effect in side_effects)
+        has_nausea = any("nausea" in effect for effect in side_effects)
+        has_rash = any("rash" in effect for effect in side_effects)
+
+        st.subheader("📊 Voorspellingen:")
+        st.markdown(f"- **Duizeligheid:** {'⚠️ Kans aanwezig' if has_dizziness else '✅ Waarschijnlijk niet'}")
+        st.markdown(f"- **Misselijkheid:** {'⚠️ Kans aanwezig' if has_nausea else '✅ Waarschijnlijk niet'}")
+        st.markdown(f"- **Huiduitslag:** {'⚠️ Kans aanwezig' if has_rash else '✅ Waarschijnlijk niet'}")
+
+        with st.expander("📄 Alle gevonden bijwerkingen"):
+            st.write(side_effects)
