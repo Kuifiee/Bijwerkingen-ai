@@ -18,9 +18,6 @@ def load_data():
     # Laad de dataset zonder kolomnamen (header=None)
     df = pd.read_csv('meddra_freq.tsv', sep='\t', header=None)
 
-    # Laat de eerste paar regels zien om te begrijpen hoe de data eruitziet
-    st.write(df.head())
-
     # De dataset heeft geen kolomnamen, dus we moeten zelf kolomnamen toewijzen
     df.columns = ['CID1', 'CID2', 'ATC Code', 'empty', 'percentage', 'value1', 'value2', 'LLT', 'ATC Code Duplicate', 'Side Effect']
     
