@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import uuid
 
 # Pagina instellingen
 st.set_page_config(page_title="Bijwerkingen AI", layout="wide")
 st.title("💊 Bijwerkingen Verkenner Pro")
+
 st.write("Typ een medicijnnaam of ATC-code om gerelateerde bijwerkingen te bekijken.")
 
 # 📄 CSV-bestanden inladen
@@ -23,7 +25,10 @@ query = st.text_input("Zoek op medicijnnaam of ATC-code:", placeholder="Bijv. Ib
 # Alleen tonen als er input is
 if query:
     # 🔎 Zoek naar overeenkomende medicijnen
-    matches = drug_df[(drug_df['drug'].str.contains(query, case=False)) | (drug_df['atc_code'].str.contains(query, case=False))]
+    matches = drug_df[
+        drug_df['drug'].str.contains(query, case=False) |
+        drug_df['atc_code'].str.contains(query, case=False)
+    ]
 
     if not matches.empty:
         for _, row in matches.iterrows():
@@ -37,10 +42,11 @@ if query:
                 st.markdown("**Mogelijke bijwerkingen:**")
                 st.markdown("\n".join([f"- {effect}" for effect in effects]))
 
-                # 📊 Toon grafiek
+                # 📊 Toon grafiek met unieke key
                 chart_df = pd.DataFrame(effects, columns=['Bijwerking'])
                 fig = px.histogram(chart_df, x='Bijwerking', title='Bijwerkingen overzicht')
-                st.plotly_chart(fig, use_container_width=True)
+                chart_key = str(uuid.uuid4())  # 🔑 unieke key voor iedere grafiek
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
             else:
                 st.warning("Geen bijwerkingen gevonden.")
     else:
