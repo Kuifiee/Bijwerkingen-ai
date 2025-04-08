@@ -2,76 +2,48 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="Bijwerkingen AI", layout="centered")
-st.title("💊 Bijwerkingen Verkenner (Top 500 Geneesmiddelen)")
+# Pagina instellingen
+st.set_page_config(page_title="Bijwerkingen AI", layout="wide")
+st.title("💊 Bijwerkingen Verkenner Pro")
+st.write("Typ een medicijnnaam of ATC-code om gerelateerde bijwerkingen te bekijken.")
 
-# 🔄 Data inladen
-@st.cache_data
+# 📄 CSV-bestanden inladen
+@st.cache_data(show_spinner=False)
 def load_data():
-    df_drug = pd.read_csv("drug_atc.csv")
-    df_se = pd.read_csv("meddra_freq.csv")
-    merged = pd.merge(df_drug, df_se, on="cid")
-    return df_drug, df_se, merged
+    drug_df = pd.read_csv("drug_atc.csv")
+    side_df = pd.read_csv("meddra_freq.csv")
+    return drug_df, side_df
 
-df_drug, df_se, merged_df = load_data()
+drug_df, side_df = load_data()
 
-# 🔍 Autosuggest via textinput + dropdowns
-st.subheader("🔎 Zoek medicijn of filter op kenmerken")
-search_term = st.text_input("Typ een medicijnnaam of ATC-code").strip().lower()
+# 🔍 Live autosuggest zoekbalk
+all_options = pd.concat([drug_df['drug'], drug_df['atc_code']]).dropna().unique().tolist()
+query = st.text_input("Zoek op medicijnnaam of ATC-code:", placeholder="Bijv. Ibuprofen of A1B1C1")
 
-filtered_df = merged_df.copy()
+# Alleen tonen als er input is
+if query:
+    # 🔎 Zoek naar overeenkomende medicijnen
+    matches = drug_df[(drug_df['drug'].str.contains(query, case=False)) | (drug_df['atc_code'].str.contains(query, case=False))]
 
-if search_term:
-    filtered_df = filtered_df[
-        filtered_df["drug"].str.lower().str.contains(search_term) |
-        filtered_df["atc_code"].str.lower().str.contains(search_term)
-    ]
+    if not matches.empty:
+        for _, row in matches.iterrows():
+            st.markdown("---")
+            st.subheader(f"🔬 {row['drug']} ({row['atc_code']})")
+            selected_cid = row['cid']
 
-col1, col2 = st.columns(2)
-with col1:
-    selected_freq = st.selectbox("📈 Frequentie", ["-- Alles --"] + sorted(df_se["frequency"].unique()))
-    if selected_freq != "-- Alles --":
-        filtered_df = filtered_df[filtered_df["frequency"] == selected_freq]
+            # 📋 Toon bijwerkingen
+            effects = side_df[side_df['cid'] == selected_cid]['side_effect'].tolist()
+            if effects:
+                st.markdown("**Mogelijke bijwerkingen:**")
+                st.markdown("\n".join([f"- {effect}" for effect in effects]))
 
-with col2:
-    selected_atc_prefix = st.selectbox("💊 ATC-code begint met", ["-- Alles --"] + sorted(set(df_drug["atc_code"].str[:3])))
-    if selected_atc_prefix != "-- Alles --":
-        filtered_df = filtered_df[filtered_df["atc_code"].str.startswith(selected_atc_prefix)]
-
-# 📋 Resultaten
-st.markdown(f"**Aantal resultaten:** {len(filtered_df)}")
-st.dataframe(filtered_df, use_container_width=True)
-
-# 📊 Grafiek
-if not filtered_df.empty:
-    fig = px.histogram(
-        filtered_df,
-        x="side_effect",
-        color="frequency",
-        title="Verdeling van bijwerkingen",
-        labels={"side_effect": "Bijwerking"},
-        barmode="group"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# 🤖 Simulatie van AI-voorspelling
-st.subheader("🤖 AI Voorspelling (simulatie)")
-
-with st.expander("Klik om voorspelling te simuleren"):
-    ai_input = st.text_input("Voer een ATC-code of CID in").strip().upper()
-
-    if ai_input:
-        import random
-        example_effects = ["hoofdpijn", "misselijkheid", "vermoeidheid", "huiduitslag", "slaperigheid"]
-        predicted = random.sample(example_effects, 3)
-        st.markdown("### 📌 Voorspelde bijwerkingen")
-        for effect in predicted:
-            st.write(f"• {effect}")
-
-# 📥 Export
-st.download_button(
-    "📥 Download huidige resultaten als CSV",
-    data=filtered_df.to_csv(index=False),
-    file_name="bijwerkingen_resultaten.csv",
-    mime="text/csv"
-)
+                # 📊 Toon grafiek
+                chart_df = pd.DataFrame(effects, columns=['Bijwerking'])
+                fig = px.histogram(chart_df, x='Bijwerking', title='Bijwerkingen overzicht')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Geen bijwerkingen gevonden.")
+    else:
+        st.error("Geen resultaten gevonden. Probeer een andere naam of ATC-code.")
+else:
+    st.info("Begin met typen om suggesties te krijgen en resultaten te zien.")
