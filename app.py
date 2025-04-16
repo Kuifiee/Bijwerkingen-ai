@@ -1,55 +1,54 @@
 import streamlit as st
 import pandas as pd
+import requests
 import plotly.express as px
-import uuid
 
-# Pagina instellingen
-st.set_page_config(page_title="Bijwerkingen AI", layout="wide")
-st.title("💊 Bijwerkingen Verkenner Pro")
+st.set_page_config(page_title="Bijwerkingen AI", layout="centered")
 
-st.write("Typ een medicijnnaam of ATC-code om gerelateerde bijwerkingen te bekijken.")
+st.title("💊 Bijwerkingen Verkenner")
 
-# 📄 CSV-bestanden inladen
 @st.cache_data(show_spinner=False)
 def load_data():
-    drug_df = pd.read_csv("drug_atc.csv")
-    side_df = pd.read_csv("meddra_freq.csv")
-    return drug_df, side_df
+    drugs = pd.read_csv("drug_atc.csv")
+    side_effects = pd.read_csv("meddra_freq.csv")
+    return drugs, side_effects
 
-drug_df, side_df = load_data()
+drugs_df, side_effects_df = load_data()
 
-# 🔍 Live autosuggest zoekbalk
-all_options = pd.concat([drug_df['drug'], drug_df['atc_code']]).dropna().unique().tolist()
-query = st.text_input("Zoek op medicijnnaam of ATC-code:", placeholder="Bijv. Ibuprofen of A1B1C1")
+# 🔍 Zoekbalk met live suggesties
+query = st.text_input("Typ een medicijnnaam of ATC-code om bijwerkingen te zoeken:")
 
-# Alleen tonen als er input is
+# Genereer suggesties tijdens het typen
 if query:
-    # 🔎 Zoek naar overeenkomende medicijnen
-    matches = drug_df[
-        drug_df['drug'].str.contains(query, case=False) |
-        drug_df['atc_code'].str.contains(query, case=False)
-    ]
-
-    if not matches.empty:
-        for _, row in matches.iterrows():
-            st.markdown("---")
-            st.subheader(f"🔬 {row['drug']} ({row['atc_code']})")
-            selected_cid = row['cid']
-
-            # 📋 Toon bijwerkingen
-            effects = side_df[side_df['cid'] == selected_cid]['side_effect'].tolist()
-            if effects:
-                st.markdown("**Mogelijke bijwerkingen:**")
-                st.markdown("\n".join([f"- {effect}" for effect in effects]))
-
-                # 📊 Toon grafiek met unieke key
-                chart_df = pd.DataFrame(effects, columns=['Bijwerking'])
-                fig = px.histogram(chart_df, x='Bijwerking', title='Bijwerkingen overzicht')
-                chart_key = str(uuid.uuid4())  # 🔑 unieke key voor iedere grafiek
-                st.plotly_chart(fig, use_container_width=True, key=chart_key)
-            else:
-                st.warning("Geen bijwerkingen gevonden.")
+    suggestions = drugs_df[drugs_df['name'].str.contains(query, case=False, na=False)]
+    if not suggestions.empty:
+        selected_drug = st.selectbox("Selecteer een medicijn:", suggestions["name"].unique())
     else:
-        st.error("Geen resultaten gevonden. Probeer een andere naam of ATC-code.")
+        st.warning("Geen suggesties gevonden.")
+        selected_drug = None
 else:
-    st.info("Begin met typen om suggesties te krijgen en resultaten te zien.")
+    selected_drug = None
+
+# 📊 Toon info wanneer iets is geselecteerd
+if selected_drug:
+    selected_data = drugs_df[drugs_df['name'] == selected_drug].iloc[0]
+    cid = selected_data['cid']
+    atc = selected_data['atc']
+
+    st.success(f"🧪 Gevonden medicijn: **{selected_drug}** (ATC: {atc}, CID: {cid})")
+
+    effects = side_effects_df[side_effects_df["cid"] == cid]["side_effect"].tolist()
+
+    if effects:
+        st.subheader("📋 Mogelijke bijwerkingen")
+        for e in effects:
+            st.write(f"• {e}")
+
+        # 📈 Visualisatie
+        effect_counts = pd.Series(effects).value_counts().reset_index()
+        effect_counts.columns = ["Bijwerking", "Aantal"]
+
+        fig = px.bar(effect_counts, x="Bijwerking", y="Aantal", title="Bijwerkingen visualisatie", color="Bijwerking")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Geen bijwerkingen gevonden voor dit medicijn.")
